@@ -1,81 +1,28 @@
-// import { SharedIniFileCredentials } from '@aws-sdk/credential-provider-ini';
-import { DynamoDBClient, PutItemCommand, ListTablesCommand, CreateTableCommand } from '@aws-sdk/client-dynamodb';
-import AWS from 'aws-sdk';
+import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
+import { fromIni, fromCognitoIdentityPool, fromTokenFile } from '@aws-sdk/credential-provider-ini';
+import { AssumeRoleCommand, StsClient } from '@aws-sdk/client-sts';
 
-import { fromIni } from '@aws-sdk/credential-provider-ini';
+const stsClient = new StsClient();
+const roleToAssumeArn = 'arn:aws:iam::387983162026:role/DynamoDBAccess'; // Replace with the ARN of the role you want to assume
 
+// Assume the IAM role
+const assumedRole = await stsClient.send(new AssumeRoleCommand({
+  RoleArn: roleToAssumeArn,
+  RoleSessionName: 'AssumedRoleSession', // Provide a session name
+}));
 
-const credentials = fromIni({ profile: 'mohan-dev-iam' });
-const config = { region: 'us-east-1', credentials };
-const dynamoDbClient = new DynamoDBClient(config);
+// Use the assumed role credentials
+const credentials = fromTokenFile({
+  accessKeyId: assumedRole.Credentials.AccessKeyId,
+  secretAccessKey: assumedRole.Credentials.SecretAccessKey,
+  sessionToken: assumedRole.Credentials.SessionToken,
+});
 
-
-// const awsProfile = 'mohan-demo-iam';
-const region = 'us-east-1';
-const tableName = 'testtable';
-
-// const credentials = fromIni({ profile: awsProfile });
-
-// import { SharedIniFileCredentials } from 'aws-sdk';
-
-// const credentials = new SharedIniFileCredentials({ profile: awsProfile });
-
-
-
-import pkg from '@aws-sdk/credential-provider-ini';
-// const { SharedIniFileCredentials } = pkg;
-
-// Rest of your code...
-
-
-// Load environment variables from .env file
-import dotenv from 'dotenv';
-dotenv.config();
-
-
-
-// Set up AWS SDK credentials
-// const credentials = new SharedIniFileCredentials({ profile: awsProfile });
-AWS.config.credentials = credentials;
-AWS.config.update({ region });
-
-// Create DynamoDB client
-// const dynamoDbClient = new DynamoDBClient({ region });
-
-
-// const createTable = async () => {
-//     const params = {
-//       AttributeDefinitions: [
-//         { AttributeName: 'emailid', AttributeType: 'S' },
-//         // Add more attribute definitions as needed
-//       ],
-//       KeySchema: [
-//         { AttributeName: 'emailid', KeyType: 'HASH' },
-//         // Add more key schema elements as needed
-//       ],
-//       ProvisionedThroughput: {
-//         ReadCapacityUnits: 5,
-//         WriteCapacityUnits: 5,
-//       },
-//       TableName: tableName,
-//     };
-  
-//     try {
-//       const command = new CreateTableCommand(params);
-//       await dynamoDbClient.send(command);
-//       console.log('Table created successfully.');
-//     } catch (error) {
-//       console.error('Error creating table:', error);
-//       throw error;
-//     }
-//   };
-  
-  // Call the createTable function
-// await createTable();
-
+const dynamoDbClient = new DynamoDBClient({ region: 'us-east-1', credentials });
 
 // Function to insert an item into the DynamoDB table
 const insertItem = async (item) => {
+  const tableName = 'testtable';
   const params = {
     TableName: tableName,
     Item: item,
@@ -91,36 +38,18 @@ const insertItem = async (item) => {
   }
 };
 
-const userEmail = 'email.com';
-
-const messageID = 'this is messageID';
+const userEmail = 'email.comafvfad';
+const messageID = 'this is messageIDadfvadfvda';
 
 // Example item to insert
-
 const itemData = {
-    emailid: { S: userEmail },
-    assignment: { S: messageID },
+  emailid: { S: userEmail },
+  assignment: { S: messageID },
 };
 
 const item = itemData;
 
-
-
 // Call the insertItem function
 await insertItem(itemData);
-
-// Function to list DynamoDB tables
-// const listTables = async () => {
-//   const command = new ListTablesCommand({});
-//   try {
-//     const result = await dynamoDbClient.send(command);
-//     console.log('Available tables:', result.TableNames);
-//   } catch (error) {
-//     console.error('Error listing tables:', error);
-//   }
-// };
-
-// Call the listTables function
-// await listTables();
 
 export default insertItem;
