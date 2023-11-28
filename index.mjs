@@ -9,32 +9,37 @@ import {Storage} from '@google-cloud/storage';
 // import { exec } from 'child_process';
 import uploadtogcs from './uploadtogcs.mjs';
 import sendAssignmentSubmissionStatus from './awssnsemail.mjs';
+import dynamoDBPut from './emaildatatodb.mjs';
 
 const bucketName = process.env.BUCKETNAME;
 
-console.log(bucketName);
-
 const storage = new Storage();
-// const sorageBucketName = storage.bucket(bucketName);
-
-
 
 const downloadRepo = async (repoUrl, destination) => {
-  try {
+  try 
+  {
     const zipUrl = repoUrl;
-    // console.log("i am the url here",repoUrl )
     const response = await axios.get(zipUrl, { responseType: 'arraybuffer' });
 
-    const __filename = new URL(import.meta.url).pathname;
-    const __dirname = path.dirname(__filename);
-
-    const zipFilePath = path.join('/tmp', `${destination}.zip`);
-    fs.writeFileSync(zipFilePath, Buffer.from(response.data));
-
-    console.log('Repository cloned and zipped successfully.');
-  } catch (error) {
-    console.error('Error downloading repository:');
-    throw error;
+    if (response.status === 200) 
+    {
+      const __filename = new URL(import.meta.url).pathname;
+      const __dirname = path.dirname(__filename);
+      const zipFilePath = path.join('/tmp', `${destination}.zip`);
+      fs.writeFileSync(zipFilePath, Buffer.from(response.data));
+      console.log('Repository cloned and zipped successfully.');
+      return 1;
+    }
+    else 
+    {
+      console.error(`Error downloading repository. HTTP Status: ${response.status}`);
+      return 0;
+    }
+  } 
+  catch (error) 
+  {
+    console.error(`Error downloading repository: ${error.message}`);
+    return 0;
   }
 };
 
@@ -42,6 +47,9 @@ const downloadRepo = async (repoUrl, destination) => {
 
 export const handler = async (event) => 
 {
+
+  console.log(process.env.client_email, "this is my test email");
+
   try 
   {
     console.log("This is inside the event");
@@ -61,23 +69,52 @@ export const handler = async (event) =>
     
     console.log(await submissionURL,"this is url",await submittedUserEmail, "This is email", await submittedassignmentID, await submissionID);
 
-    await downloadRepo(submissionURL, submittedassignmentID);
+    const downloadStatus = await downloadRepo(submissionURL, submittedassignmentID)
 
-    console.log(bucketName, "This is bucket name")
+    if (downloadStatus === 1)
+    {
+      const submittedBucketName = `${submittedassignmentID}-${submittedUserEmail}`;
 
-    const submittedBucketName = `${submittedassignmentID}-${submittedUserEmail}`;
+      console.log(bucketName, "uploading bucket name");
 
-    await uploadtogcs(bucketName,`/tmp/${submittedassignmentID}.zip`, submittedBucketName);
+      const uploadStatus = await uploadtogcs(bucketName,`/tmp/${submittedassignmentID}.zip`, submittedBucketName);
+      if (uploadStatus === 1)
+      {
+        console.log("Successfully uploaded to GCP");
+        await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, uploadStatus);
+      }
+      else
+      {
+        console.log("Failed Upload to GCP");
+        await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, uploadStatus); 
+      }
+    }
+    else
+    {
+      console.log("Failed to download the zip from the given URL");
+      await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, downloadStatus);
+    }
 
-    console.log("Here message passed to gcs");
+    const dynamoDBData = {
+      emailid: { S: submittedUserEmail },
+    };
 
-    await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName);
-
-    console.log("here is the email sent");
+    try 
+    {
+      await dynamoDBPut(dynamoDBData);
+      console.log('Successfullt added data to dynamoDB');
+      console.log("here is the email sent");
+    }
+    catch(error)
+    {
+      console.log("error adding into the dynamodb");
+      return {statusCode: 500,body: "Error DynamoDB Issue"};
+    }
+    return {statusCode: 200,body: "Successfully Executed Lambda Function"};
   } 
   catch (error) 
   {
     console.error('Error:', error.message);
-    return {statusCode: 500,body: 'Error processing SNS message.'};
+    return {statusCode: 500,body: `Error processing SNS message ${error}`};
   }
 };
