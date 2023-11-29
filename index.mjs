@@ -86,7 +86,7 @@ export const handler = async (event) =>
 
     if (downloadStatus === 1)
     {
-      const submittedBucketName = `${assignmentName}/${submittedUserEmail}/submissionCount/${assignmentCount}.zip`;
+      const submittedBucketName = `${assignmentName}/${submittedUserEmail}/submissionCount-${assignmentCount}.zip`;
 
       console.log(bucketName, "uploading bucket name");
 
