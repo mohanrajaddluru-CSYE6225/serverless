@@ -2,6 +2,7 @@
 
 import dotenv from 'dotenv';
 dotenv.config();
+import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
 import axios from 'axios';
@@ -10,6 +11,7 @@ import {Storage} from '@google-cloud/storage';
 import uploadtogcs from './uploadtogcs.mjs';
 import sendAssignmentSubmissionStatus from './awssnsemail.mjs';
 import dynamoDBPut from './emaildatatodb.mjs';
+import { URLSearchParams } from 'url';
 
 const bucketName = process.env.BUCKETNAME;
 
@@ -66,43 +68,54 @@ export const handler = async (event) =>
     const submittedassignmentID = await MessageAttributes.assignmentID.Value
     const submissionID = await MessageAttributes.submissionID.Value
     const assignmentName = await MessageAttributes.assignmentName.Value
+    const assignmentCount = await MessageAttributes.assignmentCount.Value
     
     console.log(await submissionURL,"this is url",await submittedUserEmail, "This is email", await submittedassignmentID, await submissionID);
 
     const downloadStatus = await downloadRepo(submissionURL, submittedassignmentID)
 
+    var url;
+    var uploadStatus = 0;
+
     if (downloadStatus === 1)
     {
-      const submittedBucketName = `${submittedassignmentID}-${submittedUserEmail}`;
+      const submittedBucketName = `${assignmentName}/${submittedUserEmail}/submissionCount/${assignmentCount}.zip`;
 
       console.log(bucketName, "uploading bucket name");
 
-      const uploadStatus = await uploadtogcs(bucketName,`/tmp/${submittedassignmentID}.zip`, submittedBucketName);
+      [uploadStatus, url] = await uploadtogcs(bucketName,`/tmp/${submittedassignmentID}.zip`, submittedBucketName);
       if (uploadStatus === 1)
       {
         console.log("Successfully uploaded to GCP");
-        await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, uploadStatus);
+        await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, downloadStatus, uploadStatus, url, submittedBucketName);
       }
       else
       {
         console.log("Failed Upload to GCP");
-        await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, uploadStatus); 
+        await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, downloadStatus, uploadStatus, submissionURL); 
       }
     }
     else
     {
       console.log("Failed to download the zip from the given URL");
-      await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, downloadStatus);
+      await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, downloadStatus, uploadStatus, submissionURL);
     }
 
+    console.log("Started pushing to DynamoDB");
+
     const dynamoDBData = {
-      emailid: { S: submittedUserEmail },
+      uniqueId: { S : uuidv4() },
+      submittedassignmentid: { S : submittedassignmentID }, 
+      downloadurl: { S : url[0] },
+      submittedurl: { S : submissionURL }
     };
+
+    console.log(dynamoDBData,"This is dynamo DB Data");
 
     try 
     {
       await dynamoDBPut(dynamoDBData);
-      console.log('Successfullt added data to dynamoDB');
+      console.log('Successfully added data to dynamoDB');
       console.log("here is the email sent");
     }
     catch(error)
