@@ -25,10 +25,15 @@ async function sendAssignmentSubmissionStatus(toEmail, assignmentName, downloadS
   let emailSubject;
   let emailBody;
 
+  // console.log(isValidZipURL,"Is current zip url status");
+
+    console.log("I am proper zip email")
+
+
   if (downloadStatus === 1 && uploadStatus === 1)
   {
     emailSubject = 'Assignment Submission Status Successful';
-    emailBody = `Assignment ${assignmentName} has been submitted successfully, stored in Google Cloud Storage download from this URL - ${url} with File Name - filePath`;
+    emailBody = `Assignment ${assignmentName} has been submitted successfully, stored in Google Cloud Storage download from this URL - ${url} with File Name - ${filePath}`;
   }
   else
   {

@@ -23,7 +23,9 @@ const downloadRepo = async (repoUrl, destination) => {
     const zipUrl = repoUrl;
     const response = await axios.get(zipUrl, { responseType: 'arraybuffer' });
 
-    if (response.status === 200) 
+    console.log(response, "is the current response");
+
+    if (response.headers['content-type'] === 'application/zip') 
     {
       const __filename = new URL(import.meta.url).pathname;
       const __dirname = path.dirname(__filename);
@@ -34,12 +36,17 @@ const downloadRepo = async (repoUrl, destination) => {
     }
     else 
     {
-      console.error(`Error downloading repository. HTTP Status: ${response.status}`);
+      console.error(`Error downloading repository, Given URL is not pointing to ZIP. HTTP Status: ${response.status}, - having type - ${response.headers['Content-Type']}`);
       return 0;
     }
   } 
   catch (error) 
   {
+    if (error.response && error.response.status === 404)
+    {
+      console.error(`Error downloading repository: The requested resource was not found (HTTP Status 404)`);
+      return 0;
+    }
     console.error(`Error downloading repository: ${error.message}`);
     return 0;
   }
@@ -97,7 +104,7 @@ export const handler = async (event) =>
     }
     else
     {
-      console.log("Failed to download the zip from the given URL");
+      console.log("Failed to download the zip from the given URL with unproper email");
       await sendAssignmentSubmissionStatus(submittedUserEmail, assignmentName, downloadStatus, uploadStatus, submissionURL);
     }
 
