@@ -10,7 +10,6 @@ const senderEmail = process.env.SENDEREMAIL;
 const smtpPort = process.env.SMTPPORT;
 
 
-
 const transporter = nodemailer.createTransport({
   host: smtpHost,
   port: smtpPort,
@@ -21,22 +20,29 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-async function sendAssignmentSubmissionStatus(toEmail, assignmentName, downloadStatus) {
+async function sendAssignmentSubmissionStatus(toEmail, assignmentName, downloadStatus, uploadStatus, url, filePath = null) {
 
   let emailSubject;
   let emailBody;
 
-  if (downloadStatus === 1)
+  if (downloadStatus === 1 && uploadStatus === 1)
   {
     emailSubject = 'Assignment Submission Status Successful';
-    emailBody = `Assignment ${assignmentName} has been submitted successfully, stored in Google Cloud Storage`;
+    emailBody = `Assignment ${assignmentName} has been submitted successfully, stored in Google Cloud Storage download from this URL - ${url} with File Name - filePath`;
   }
   else
   {
-    emailSubject = 'Assignment Submission Status Failure';
-    emailBody = `Assignment : ${assignmentName} Submission Failed`;
+    if (downloadStatus === 1)
+    {
+      emailSubject = 'Assignment Submission Status Failure';
+      emailBody = `Assignment : ${assignmentName} Downloaded Successfully Failed to upload to GCP contact Admin`;
+    }
+    else
+    {
+      emailSubject = 'Assignment Submission Status Failure';
+      emailBody = `Assignment : ${assignmentName} Submission Failed enter proper url, invalid submitted url - ${url}`;
+    }
   }
-
 
   const ccEmailListString = process.env.CCEMAILLIST;
 
@@ -54,8 +60,6 @@ async function sendAssignmentSubmissionStatus(toEmail, assignmentName, downloadS
   console.log(info);
   console.log(`Message sent to: ${toEmail}, messageId - ${info.messageId}.`);
 }
-
-// sendAssignmentSubmissionStatus("mohanrajaddluru@gmail.com", "assignmentName", 1)
 
 
 export default sendAssignmentSubmissionStatus;
