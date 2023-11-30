@@ -112,6 +112,7 @@ export const handler = async (event) =>
 
     const dynamoDBData = {
       uniqueId: { S : uuidv4() },
+      submittedUserEmail : { S : submittedUserEmail },
       submittedassignmentid: { S : submittedassignmentID }, 
       downloadurl: { S: Array.isArray(url) && url.length > 0 ? url[0] : "NULL" },
       submittedurl: { S : submissionURL }
