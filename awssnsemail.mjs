@@ -33,7 +33,7 @@ async function sendAssignmentSubmissionStatus(toEmail, assignmentName, downloadS
   if (downloadStatus === 1 && uploadStatus === 1)
   {
     emailSubject = 'Assignment Submission Status Successful';
-    emailBody = `Assignment ${assignmentName} has been submitted successfully, stored in Google Cloud Storage download from this URL - ${url} with File Name - ${filePath}`;
+    emailBody = `Assignment ${assignmentName} has been submitted successfully, stored in Google Cloud Storage with File Name - ${filePath}`;
   }
   else
   {
